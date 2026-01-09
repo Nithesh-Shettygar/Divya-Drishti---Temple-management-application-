@@ -10,8 +10,6 @@ class MorePage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // Empty space at the top (colored background)
-          
           // White box containing ALL content
           Expanded(
             child: Container(
@@ -27,14 +25,7 @@ class MorePage extends StatelessWidget {
                 padding: EdgeInsets.all(30),
                 child: Column(
                   children: [
-                    // Language Settings Section
-                    _buildSectionHeader('Language Settings'),
-                    SizedBox(height: 15),
-                    _buildLanguageBox(),
-
-                    SizedBox(height: 25),
-
-                    // Do's and Don'ts Section
+                    // Do's and Don'ts Section (moved to top)
                     _buildSectionHeader('Temple Guidelines'),
                     SizedBox(height: 15),
                     _buildDosDontsBox(),
@@ -66,79 +57,6 @@ class MorePage extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: AppColors.primary,
         ),
-      ),
-    );
-  }
-
-  Widget _buildLanguageBox() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 4,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildLanguageOption('English', 'en', true),
-            SizedBox(height: 12),
-            _buildLanguageOption('Hindi', 'hi', false),
-            SizedBox(height: 12),
-            _buildLanguageOption('Gujarati', 'gu', false),
-            SizedBox(height: 12),
-            _buildLanguageOption('Marathi', 'mr', false),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLanguageOption(String language, String code, bool isSelected) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          width: 1.5,
-        ),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
-          radius: 20,
-          child: Icon(
-            Icons.language,
-            size: 18,
-            color: AppColors.primary,
-          ),
-        ),
-        title: Text(
-          language,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
-          ),
-        ),
-        trailing: isSelected
-            ? Icon(
-                Icons.check_circle,
-                color: AppColors.primary,
-                size: 20,
-              )
-            : null,
-        onTap: () {
-          _changeLanguage(code);
-        },
       ),
     );
   }
@@ -336,11 +254,6 @@ class MorePage extends StatelessWidget {
         },
       ),
     );
-  }
-
-  void _changeLanguage(String languageCode) {
-    // Implement language change functionality
-    print('Changing language to: $languageCode');
   }
 
   void _handleLostFoundAction(BuildContext context, LostFoundAction action) {

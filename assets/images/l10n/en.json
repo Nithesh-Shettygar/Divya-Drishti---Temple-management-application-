@@ -1,0 +1,18 @@
+{
+  "app_name": "My App",
+  "home": "Home",
+  "explore": "Explore",
+  "sos": "SOS",
+  "parking": "Parking",
+  "more": "More",
+  "change_language": "Change Language",
+  "english": "English",
+  "hindi": "Hindi",
+  "gujarati": "Gujarati",
+  "select_language": "Select Language",
+  "home_title": "Welcome Home",
+  "explore_title": "Explore Places",
+  "sos_title": "Emergency SOS",
+  "parking_title": "Find Parking",
+  "more_title": "More Options"
+}

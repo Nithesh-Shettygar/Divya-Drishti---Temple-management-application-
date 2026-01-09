@@ -1,4 +1,4 @@
-import 'package:divya_drishti/screens/presentation/auth/login_page.dart';
+import 'package:divya_drishti/admin/role_selection.dart';
 import 'package:flutter/material.dart';
 import 'package:divya_drishti/core/constants/app_colors.dart';
 import 'package:flutter/animation.dart';
@@ -72,7 +72,7 @@ class _EnhancedLandingPageState extends State<EnhancedLandingPage>
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => LoginPage(),
+        pageBuilder: (context, animation, secondaryAnimation) => RoleSelection(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var begin = Offset(0.0, 1.0);
           var end = Offset.zero;

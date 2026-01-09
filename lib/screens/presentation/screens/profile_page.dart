@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -22,9 +22,6 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _selectedGender;
 
   final List<String> _genders = ['Male', 'Female', 'Other'];
-
-  // Base URL for Flask backend
-  final String _baseUrl = kIsWeb ? 'http://127.0.0.1:5000' : 'http://10.0.2.2:5000';
 
   @override
   void initState() {
@@ -54,8 +51,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchUserProfile(String phone) async {
     try {
+      // Use AppConfig to build the URL
       final response = await http.get(
-        Uri.parse('$_baseUrl/profile/$phone'),
+        Uri.parse('${AppConfig.baseUrl}/profile/$phone'),
       );
 
       if (response.statusCode == 200) {
@@ -71,10 +69,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _isLoading = false;
         });
 
-        // Update shared prefs
+        // Update shared prefs with all user data
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', _userData?['name'] ?? '');
-        await prefs.setString('user_phone', _userData?['phone'] ?? '');
+        await _saveUserDataToPrefs(prefs, data['user']);
       } else {
         setState(() {
           _isLoading = false;
@@ -87,6 +84,14 @@ class _ProfilePageState extends State<ProfilePage> {
       });
       _showErrorDialog('Network error: $e');
     }
+  }
+
+  Future<void> _saveUserDataToPrefs(SharedPreferences prefs, Map<String, dynamic> userData) async {
+    await prefs.setString('user_name', userData['name'] ?? '');
+    await prefs.setString('user_phone', userData['phone'] ?? '');
+    await prefs.setString('user_dob', userData['dob'] ?? '');
+    await prefs.setString('user_gender', userData['gender'] ?? '');
+    await prefs.setString('user_address', userData['address'] ?? '');
   }
 
   Future<void> _updateProfile() async {
@@ -108,8 +113,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final dobForDb = _formatDateForDb(_dobController.text);
 
+      // Use AppConfig to build the URL
       final response = await http.put(
-        Uri.parse('$_baseUrl/profile'),
+        Uri.parse('${AppConfig.baseUrl}/profile'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'phone': userPhone,
@@ -131,7 +137,8 @@ class _ProfilePageState extends State<ProfilePage> {
           _isEditing = false;
         });
 
-        await prefs.setString('user_name', _userData?['name'] ?? '');
+        // Save updated data to shared preferences
+        await _saveUserDataToPrefs(prefs, data['user']);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

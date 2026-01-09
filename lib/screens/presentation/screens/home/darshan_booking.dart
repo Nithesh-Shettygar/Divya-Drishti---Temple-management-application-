@@ -1,13 +1,12 @@
-// darshan_booking_page.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:divya_drishti/core/constants/app_colors.dart';
-import 'package:flutter/foundation.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// MODEL: PersonDetail
 class PersonDetail {
@@ -76,19 +75,6 @@ class DarshanBookingPage extends StatefulWidget {
 }
 
 class _DarshanBookingPageState extends State<DarshanBookingPage> {
-  // Platform-aware backend base URL.
-  String get backendBaseUrl {
-    if (kIsWeb) return 'http://localhost:5000';
-    if (Platform.isAndroid) {
-      // Android emulator (Android Studio): 10.0.2.2
-      // Genymotion: 10.0.3.2
-      return 'http://10.0.2.2:5000';
-    }
-    if (Platform.isIOS) return 'http://127.0.0.1:5000';
-    // Default fallback
-    return 'http://127.0.0.1:5000';
-  }
-
   DateTime _selectedDate = DateTime.now();
   int _numberOfPersons = 1;
   final List<PersonDetail> _personDetails = [];
@@ -117,15 +103,17 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
 
   void _initializeSlotAvailability() {
     final now = DateTime.now();
+    
     _slotAvailability.clear();
     for (int i = 0; i < 60; i++) {
       final date = now.add(Duration(days: i));
-      bool isOpened = date.isAfter(now.subtract(const Duration(days: 1)));
-      bool isAvailable = date.weekday != DateTime.sunday &&
-          date.day.isEven &&
-          date.isAfter(now.subtract(const Duration(days: 1)));
+      
+      // All slots available for today and all upcoming days
+      bool isOpened = true;
+      bool isAvailable = true;
       int totalSlots = 100;
-      int availableSlots = isAvailable ? (date.day % 4) * 25 : 0;
+      int availableSlots = 100; // Always 100 slots available
+      
       _slotAvailability.add(SlotAvailability(
         date: date,
         isAvailable: isAvailable,
@@ -152,7 +140,7 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
 
   // Ping root endpoint to ensure server reachable
   Future<bool> _pingServer() async {
-    final uri = Uri.parse("$backendBaseUrl/");
+    final uri = Uri.parse('${AppConfig.baseUrl}/');
     try {
       final resp = await http.get(uri).timeout(const Duration(seconds: 6));
       return resp.statusCode == 200 || resp.statusCode == 404;
@@ -201,33 +189,39 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
     final pingOk = await _pingServer();
     if (!pingOk) {
       setState(() => _loading = false);
-      final suggestion = kIsWeb
-          ? "If you're on web, ensure backend is running at http://localhost:5000 and CORS enabled."
-          : Platform.isAndroid
-              ? "On Android emulator use 10.0.2.2; on real device use your PC IP and run Flask with host=0.0.0.0."
-              : "Ensure backend is running and reachable.";
+      final suggestion = "Ensure backend is running at ${AppConfig.baseUrl}";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text("Cannot reach backend at $backendBaseUrl. $suggestion"),
+          content: Text("Cannot reach backend. $suggestion"),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    final personsPayload =
-        _personDetails.take(_numberOfPersons).map((p) => p.toMap()).toList();
-    final payload = {
-      "title": widget.title,
-      "date": _formatDateForBackend(_selectedDate),
-      "time_slot": _selectedTimeSlot,
-      "persons": _numberOfPersons,
-      "amount": 100 * _numberOfPersons,
-      "person_details": personsPayload,
-    };
+     final prefs = await SharedPreferences.getInstance();
+  final userId = prefs.getInt('user_id');
+  
+  if (userId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("User not logged in"), backgroundColor: Colors.red)
+    );
+    return;
+  }
+  
+  final personsPayload = _personDetails.take(_numberOfPersons).map((p) => p.toMap()).toList();
+  final payload = {
+    "title": widget.title,
+    "date": _formatDateForBackend(_selectedDate),
+    "time_slot": _selectedTimeSlot,
+    "persons": _numberOfPersons,
+    "amount": 100 * _numberOfPersons,
+    "person_details": personsPayload,
+    "user_id": userId,  // Add user_id
+  };
+  
 
-    final uri = Uri.parse("$backendBaseUrl/book");
+    final uri = Uri.parse('${AppConfig.baseUrl}/book');
 
     Future<http.Response> _postBooking() {
       return http
@@ -261,7 +255,6 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => QRPage(
-                  baseUrl: backendBaseUrl,
                   bookingId:
                       bookingObj != null ? (bookingObj['id'] as int?) : (bookingId is int ? bookingId : int.tryParse('$bookingId')),
                   amount: bookingObj != null ? (bookingObj['amount'] ?? (100 * _numberOfPersons)) : (100 * _numberOfPersons),
@@ -310,7 +303,7 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
     try {
       final id = bookingId is int ? bookingId : int.tryParse('$bookingId');
       if (id == null) return null;
-      final uri = Uri.parse("$backendBaseUrl/booking/$id");
+      final uri = Uri.parse('${AppConfig.baseUrl}/booking/$id');
       final resp = await http.get(uri).timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body);
@@ -438,49 +431,72 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
   Widget _buildDayCell(DateTime date, SlotAvailability slot, int day) {
     bool isSelected = _isSameDay(date, _selectedDate);
     bool isToday = _isSameDay(date, DateTime.now());
+    
+    // Disable past dates
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final isPastDate = dateOnly.isBefore(today);
 
-    Color backgroundColor = Colors.transparent;
-    Color textColor = Colors.black;
-    String statusText = '';
-
-    if (!slot.isOpened) {
-      backgroundColor = Colors.blue.withOpacity(0.1);
-      textColor = Colors.blue;
-      statusText = 'Closed';
-    } else if (!slot.isAvailable) {
-      backgroundColor = Colors.grey.withOpacity(0.3);
-      textColor = Colors.grey;
-      statusText = 'Filled';
-    } else {
-      backgroundColor = isSelected ? AppColors.primary : Colors.transparent;
-      textColor = isSelected ? Colors.white : Colors.black;
-      statusText = '${slot.availableSlots} left';
-    }
+    Color backgroundColor = isSelected ? AppColors.primary : Colors.white;
+    Color textColor = isSelected ? Colors.white : (isPastDate ? Colors.grey : Colors.black);
+    
+    // Always show available slots for today and future dates
+    String statusText = isPastDate ? 'Past' : '${slot.availableSlots} left';
 
     return GestureDetector(
-      onTap: slot.isOpened && slot.isAvailable ? () => _selectDateFromCalendar(date) : null,
+      onTap: isPastDate ? null : () => _selectDateFromCalendar(date),
       child: Container(
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: isPastDate ? Colors.grey.shade100 : backgroundColor,
           borderRadius: BorderRadius.circular(8),
-          border: isToday ? Border.all(color: AppColors.primary, width: 2) : null,
+          border: Border.all(
+            color: isToday ? AppColors.primary : Colors.grey.shade300,
+            width: isToday ? 2 : 1,
+          ),
+          boxShadow: [
+            if (!isSelected && !isPastDate)
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+          ],
         ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(day.toString(), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-          const SizedBox(height: 2),
-          Text(statusText, style: TextStyle(fontSize: 8, color: textColor)),
-        ]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              day.toString(),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              statusText,
+              style: TextStyle(
+                fontSize: 8,
+                color: textColor.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildLegend() {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-      _buildLegendItem(Colors.blue, 'Not Opened'),
-      _buildLegendItem(Colors.grey, 'Filled'),
-      _buildLegendItem(AppColors.primary, 'Available'),
-      _buildLegendItem(Colors.transparent, 'Today', hasBorder: true),
-    ]);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildLegendItem(AppColors.primary, 'Available'),
+        _buildLegendItem(Colors.white, 'Selectable', hasBorder: true),
+        _buildLegendItem(Colors.grey.shade100, 'Past Date'),
+      ],
+    );
   }
 
   Widget _buildLegendItem(Color color, String text, {bool hasBorder = false}) {
@@ -643,14 +659,19 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
   }
 
   Widget _buildBookButton() {
-    final slot = _getSlotAvailability(_selectedDate);
-    final canBook = slot!.isOpened && slot.isAvailable;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: canBook ? _submitBookingFlow : null,
-        style: ElevatedButton.styleFrom(backgroundColor: canBook ? AppColors.primary : Colors.grey, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-        child: Text(canBook ? "Book Now" : "No Slots Available", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+        onPressed: _submitBookingFlow,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+        ),
+        child: const Text(
+          "Book Now",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
       ),
     );
   }
@@ -658,12 +679,11 @@ class _DarshanBookingPageState extends State<DarshanBookingPage> {
 
 /// QRPage: shows QR for payment and allows dev-simulated scan & pay
 class QRPage extends StatefulWidget {
-  final String baseUrl;
   final int? bookingId;
   final int amount;
   final String? bookingRef;
 
-  const QRPage({super.key, required this.baseUrl, required this.bookingId, required this.amount, this.bookingRef});
+  const QRPage({super.key, required this.bookingId, required this.amount, this.bookingRef});
 
   @override
   State<QRPage> createState() => _QRPageState();
@@ -690,7 +710,7 @@ class _QRPageState extends State<QRPage> {
     }
 
     try {
-      final uri = Uri.parse("${widget.baseUrl}/booking/${widget.bookingId}/qr");
+      final uri = Uri.parse('${AppConfig.baseUrl}/booking/${widget.bookingId}/qr');
       final resp = await http.get(uri).timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(resp.body);
@@ -720,7 +740,7 @@ class _QRPageState extends State<QRPage> {
     setState(() => _loading = true);
     try {
       final payload = {"booking_id": _qrPayload!['booking_id'], "amount": _qrPayload!['amount'], "payment_ref": _qrPayload!['payment_ref']};
-      final uri = Uri.parse("${widget.baseUrl}/payment");
+      final uri = Uri.parse('${AppConfig.baseUrl}/payment');
       final resp = await http.post(uri, body: jsonEncode(payload), headers: {"Content-Type": "application/json"}).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment marked paid (dev)"), backgroundColor: Colors.green));
@@ -740,30 +760,39 @@ class _QRPageState extends State<QRPage> {
   @override
   Widget build(BuildContext context) {
     final bookingRefText = widget.bookingRef != null ? "Ref: ${widget.bookingRef}" : "";
-    return Scaffold(appBar: AppBar(title: const Text("Payment QR"), backgroundColor: AppColors.primary), body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red))) : Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(children: [
-        Text("Scan this QR at the payment counter", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (bookingRefText.isNotEmpty) Text(bookingRefText, style: const TextStyle(fontSize: 14)),
-        const SizedBox(height: 20),
-        if (_qrPayload != null) ...[
-          Center(child: QrImageView(data: jsonEncode(_qrPayload), version: QrVersions.auto, size: 220.0)),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Payment QR"), 
+        backgroundColor: AppColors.primary
+      ), 
+      body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red))) : Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(children: [
+          Text("Scan this QR at the payment counter", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (bookingRefText.isNotEmpty) Text(bookingRefText, style: const TextStyle(fontSize: 14)),
           const SizedBox(height: 20),
-          Text("Booking: ${_qrPayload!['booking_id']}  •  Amount: ₹${_qrPayload!['amount']}"),
-          const SizedBox(height: 24),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary), onPressed: _simulateScanAndPay, child: const Text("Simulate Scan & Complete Payment (dev)")),
-          const SizedBox(height: 12),
-          const Text("In production the payment terminal scans the QR and calls the backend /payment endpoint."),
-        ],
-      ]),
-    ));
+          if (_qrPayload != null) ...[
+            Center(child: QrImageView(data: jsonEncode(_qrPayload), version: QrVersions.auto, size: 220.0)),
+            const SizedBox(height: 20),
+            Text("Booking: ${_qrPayload!['booking_id']}  •  Amount: ₹${_qrPayload!['amount']}"),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary), 
+              onPressed: _simulateScanAndPay, 
+              child: const Text("Simulate Scan & Complete Payment (dev)")
+            ),
+            const SizedBox(height: 12),
+            const Text("In production the payment terminal scans the QR and calls the backend /payment endpoint."),
+          ],
+        ]),
+      )
+    );
   }
 }
 
 /// PaymentPage (kept for alternate flows)
 class PaymentPage extends StatefulWidget {
-  final String baseUrl;
   final int? bookingId;
   final String title;
   final DateTime date;
@@ -772,7 +801,7 @@ class PaymentPage extends StatefulWidget {
   final List<Map<String, dynamic>> personDetails;
   final int amount;
 
-  const PaymentPage({super.key, required this.baseUrl, required this.bookingId, required this.title, required this.date, required this.timeSlot, required this.persons, required this.personDetails, required this.amount});
+  const PaymentPage({super.key, required this.bookingId, required this.title, required this.date, required this.timeSlot, required this.persons, required this.personDetails, required this.amount});
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -789,7 +818,7 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => _processing = true);
     try {
       final payload = {"booking_id": widget.bookingId, "amount": widget.amount, "payment_ref": "DEV-${DateTime.now().millisecondsSinceEpoch}"};
-      final uri = Uri.parse("${widget.baseUrl}/payment");
+      final uri = Uri.parse('${AppConfig.baseUrl}/payment');
       final resp = await http.post(uri, body: jsonEncode(payload), headers: {"Content-Type": "application/json"}).timeout(const Duration(seconds: 25));
       if (resp.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment successful"), backgroundColor: Colors.green));
@@ -816,20 +845,40 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: AppBar(title: const Text("Payment"), backgroundColor: AppColors.primary), body: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text("Darshan: ${widget.title}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Text("Date: ${_formatDate(widget.date)}"),
-      const SizedBox(height: 6),
-      Text("Time Slot: ${widget.timeSlot}"),
-      const SizedBox(height: 6),
-      Text("Persons: ${widget.persons}"),
-      const SizedBox(height: 12),
-      const Divider(),
-      const SizedBox(height: 8),
-      Text("Amount to Pay: ₹${widget.amount}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const Spacer(),
-      _processing ? const Center(child: CircularProgressIndicator()) : SizedBox(width: double.infinity, height: 55, child: ElevatedButton(onPressed: _completePayment, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary), child: Text("Pay ₹${widget.amount}", style: const TextStyle(fontSize: 18)))),
-    ])));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Payment"), 
+        backgroundColor: AppColors.primary
+      ), 
+      body: Padding(
+        padding: const EdgeInsets.all(16), 
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, 
+          children: [
+            Text("Darshan: ${widget.title}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text("Date: ${_formatDate(widget.date)}"),
+            const SizedBox(height: 6),
+            Text("Time Slot: ${widget.timeSlot}"),
+            const SizedBox(height: 6),
+            Text("Persons: ${widget.persons}"),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text("Amount to Pay: ₹${widget.amount}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            _processing ? const Center(child: CircularProgressIndicator()) : SizedBox(
+              width: double.infinity, 
+              height: 55, 
+              child: ElevatedButton(
+                onPressed: _completePayment, 
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary), 
+                child: Text("Pay ₹${widget.amount}", style: const TextStyle(fontSize: 18))
+              )
+            ),
+          ]
+        )
+      )
+    );
   }
 }

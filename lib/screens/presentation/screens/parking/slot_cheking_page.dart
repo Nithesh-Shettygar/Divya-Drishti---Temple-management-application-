@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:url_launcher/url_launcher.dart'; // Add this import
+import 'package:url_launcher/url_launcher_string.dart'; // Add this import
 
 class ParkingDetailsPage extends StatefulWidget {
   final String parkingType;
@@ -21,7 +23,7 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
       operatingHours: '24/7',
       address: 'North Gate, Temple Complex',
       facilities: ['CCTV Surveillance', 'Well Lit', 'Security Guard', 'Payment Counter'],
-      coordinates: '28.6129, 77.2295',
+      coordinates: '23.224363, 72.507734',
     ),
     'VIP Parking': ParkingDetails(
       name: 'VIP Parking',
@@ -54,6 +56,48 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
       coordinates: '28.6132, 77.2285',
     ),
   };
+
+  // Function to open Google Maps
+  Future<void> _openGoogleMaps(ParkingDetails parkingDetails) async {
+    // Extract latitude and longitude from coordinates string
+    final coords = parkingDetails.coordinates.split(',');
+    if (coords.length != 2) return;
+    
+    final latitude = coords[0].trim();
+    final longitude = coords[1].trim();
+    
+    // Create Google Maps URL
+    final url = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    
+    // Alternative: For directions from user's current location
+    // final url = 'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving';
+    
+    try {
+      if (await canLaunchUrlString(url)) {
+        await launchUrlString(url, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      _showErrorDialog();
+    }
+  }
+
+  void _showErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Navigation Error'),
+        content: Text('Could not open Google Maps. Please make sure you have Google Maps installed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +137,7 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
             SizedBox(height: 30),
             
             // Navigation Button
-            _buildNavigationButton(),
+            _buildNavigationButton(parkingDetails),
           ],
         ),
       ),
@@ -101,77 +145,88 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
   }
 
   Widget _buildMapSection(ParkingDetails parkingDetails) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Map Placeholder
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.primary.withOpacity(0.1),
+    return GestureDetector(
+      onTap: () => _openGoogleMaps(parkingDetails),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: Offset(0, 2),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.map,
-                  size: 50,
-                  color: AppColors.primary,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Interactive Map',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Map Placeholder
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: AppColors.primary.withOpacity(0.1),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.map,
+                    size: 50,
                     color: AppColors.primary,
                   ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Open in Google Maps',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Tap to open location',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary.withOpacity(0.7),
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Coordinates: ${parkingDetails.coordinates}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Availability Badge
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: parkingDetails.availableSpots > 0 ? Colors.green : Colors.red,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                SizedBox(height: 5),
-                Text(
-                  'Coordinates: ${parkingDetails.coordinates}',
+                child: Text(
+                  parkingDetails.availableSpots > 0 ? 'Available' : 'Full',
                   style: TextStyle(
+                    color: Colors.white,
                     fontSize: 12,
-                    color: AppColors.primary.withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Availability Badge
-          Positioned(
-            top: 10,
-            right: 10,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: parkingDetails.availableSpots > 0 ? Colors.green : Colors.red,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                parkingDetails.availableSpots > 0 ? 'Available' : 'Full',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -348,9 +403,15 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
             ),
             SizedBox(height: 15),
             
-            _buildDetailRow('Address', parkingDetails.address, Icons.location_on),
+            GestureDetector(
+              onTap: () => _openGoogleMaps(parkingDetails),
+              child: _buildDetailRow('Address', parkingDetails.address, Icons.location_on),
+            ),
             SizedBox(height: 12),
-            _buildDetailRow('Coordinates', parkingDetails.coordinates, Icons.map),
+            GestureDetector(
+              onTap: () => _openGoogleMaps(parkingDetails),
+              child: _buildDetailRow('Coordinates', parkingDetails.coordinates, Icons.map),
+            ),
             SizedBox(height: 12),
             _buildDetailRow('Parking Type', widget.parkingType, Icons.local_parking),
           ],
@@ -465,14 +526,12 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
     );
   }
 
-  Widget _buildNavigationButton() {
+  Widget _buildNavigationButton(ParkingDetails parkingDetails) {
     return Container(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: () {
-          _startNavigation();
-        },
+        onPressed: () => _openGoogleMaps(parkingDetails),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(
@@ -494,30 +553,6 @@ class _ParkingDetailsPageState extends State<ParkingDetailsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _startNavigation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Start Navigation'),
-        content: Text('Opening navigation to ${widget.parkingType}...'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Implement actual navigation
-              print('Navigating to ${widget.parkingType}');
-            },
-            child: Text('Navigate'),
-          ),
-        ],
       ),
     );
   }

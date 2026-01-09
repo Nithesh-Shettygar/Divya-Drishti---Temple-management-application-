@@ -1,0 +1,18 @@
+{
+  "app_name": "मेरा ऐप",
+  "home": "होम",
+  "explore": "खोजें",
+  "sos": "एसओएस",
+  "parking": "पार्किंग",
+  "more": "अधिक",
+  "change_language": "भाषा बदलें",
+  "english": "अंग्रेज़ी",
+  "hindi": "हिंदी",
+  "gujarati": "गुजराती",
+  "select_language": "भाषा चुनें",
+  "home_title": "होम में स्वागत है",
+  "explore_title": "स्थानों की खोज करें",
+  "sos_title": "आपातकालीन एसओएस",
+  "parking_title": "पार्किंग ढूंढें",
+  "more_title": "अधिक विकल्प"
+}

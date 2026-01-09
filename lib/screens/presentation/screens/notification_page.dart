@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -15,14 +16,6 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  // Primary host choices, in order of preference:
-  // - Android emulator => 10.0.2.2
-  // - iOS simulator => 127.0.0.1
-  // - Web => localhost
-  // For real device, set `overrideBaseUrl` with your PC LAN IP e.g. http://192.168.1.100:5000
-  String? overrideBaseUrl;
-  late List<String> _candidateBaseUrls;
-
   bool _loading = true;
   bool _refreshing = false;
   String? _errorMessage;
@@ -31,75 +24,21 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     super.initState();
-    _setupBaseUrls();
-    _loadNotificationsWithFallbacks();
+    _loadNotifications();
   }
 
-  void _setupBaseUrls() {
-    // If user wants to override, set overrideBaseUrl (for a real device)
-    // e.g. overrideBaseUrl = "http://192.168.1.100:5000";
-    _candidateBaseUrls = [];
-
-    if (overrideBaseUrl != null && overrideBaseUrl!.isNotEmpty) {
-      _candidateBaseUrls.add(overrideBaseUrl!.trim());
-    }
-
-    if (kIsWeb) {
-      _candidateBaseUrls.add("http://localhost:5000");
-      _candidateBaseUrls.add("http://127.0.0.1:5000");
-    } else {
-      if (Platform.isAndroid) {
-        _candidateBaseUrls.add("http://10.0.2.2:5000"); // Android emulator
-        _candidateBaseUrls.add("http://127.0.0.1:5000");
-      } else if (Platform.isIOS) {
-        _candidateBaseUrls.add("http://127.0.0.1:5000"); // iOS simulator
-      } else {
-        _candidateBaseUrls.add("http://127.0.0.1:5000");
-      }
-      // Always add localhost fallback
-      _candidateBaseUrls.add("http://127.0.0.1:5000");
-      _candidateBaseUrls.add("http://localhost:5000");
-    }
-  }
-
-  Future<void> _loadNotificationsWithFallbacks() async {
+  Future<void> _loadNotifications() async {
     setState(() {
       _loading = true;
       _errorMessage = null;
       _notifications = [];
     });
 
-    String? lastErr;
-    for (final base in _candidateBaseUrls) {
-      try {
-        final ok = await _tryLoadNotifications(base);
-        if (ok) {
-          // found working base URL; store a short-lived override for this session
-          overrideBaseUrl = base;
-          return;
-        }
-      } catch (e) {
-        lastErr = e.toString();
-      }
-    }
-
-    // If we reach here, none of the candidates worked
-    setState(() {
-      _loading = false;
-      _errorMessage =
-          "Unable to reach backend. Tried: ${_candidateBaseUrls.join(', ')}.\n\n"
-          "Suggestions:\n"
-          "- Ensure Flask server is running (python app.py).\n"
-          "- If on Android emulator use 10.0.2.2:5000; on iOS simulator use 127.0.0.1:5000.\n"
-          "- If using a real device, set overrideBaseUrl to http://<PC_IP>:5000 and run Flask with host=0.0.0.0.\n"
-          "- Add INTERNET permission to AndroidManifest.xml.\n\nLast error: ${lastErr ?? 'unknown'}";
-    });
-  }
-
-  Future<bool> _tryLoadNotifications(String baseUrl) async {
-    final uri = Uri.parse("$baseUrl/notifications?limit=50");
     try {
+      // Use AppConfig.baseUrl to build the URL
+      final uri = Uri.parse('${AppConfig.baseUrl}/notifications?limit=50');
       final resp = await http.get(uri).timeout(const Duration(seconds: 8));
+      
       if (resp.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(resp.body);
         final List<dynamic> items = body['notifications'] ?? [];
@@ -125,39 +64,27 @@ class _NotificationPageState extends State<NotificationPage> {
           _loading = false;
           _refreshing = false;
         });
-        return true;
       } else {
-        // server reachable but returned error - stop fallbacks so developer sees response code
         setState(() {
           _loading = false;
           _errorMessage = "Backend returned ${resp.statusCode}: ${resp.body}";
         });
-        return false;
       }
     } on Exception catch (e) {
-      // network error - allow next fallback to try
-      return false;
+      setState(() {
+        _loading = false;
+        _errorMessage = "Network error: $e\n\n"
+            "Suggestions:\n"
+            "- Ensure Flask server is running (python app.py).\n"
+            "- Current base URL: ${AppConfig.baseUrl}\n"
+            "- Check your network connection.";
+      });
     }
-  }
-
-  Future<void> _loadNotifications() async {
-    // Try current override first, otherwise fallback sequence
-    setState(() {
-      _loading = true;
-    });
-
-    if (overrideBaseUrl != null) {
-      final ok = await _tryLoadNotifications(overrideBaseUrl!);
-      if (ok) return;
-      // fallback to the candidate list if override failed
-    }
-    await _loadNotificationsWithFallbacks();
   }
 
   Future<void> _clearAllNotifications() async {
     // Developer endpoint to clear bookings. Remove/change for production.
-    final base = overrideBaseUrl ?? _candidateBaseUrls.first;
-    final uri = Uri.parse("$base/dev/clear-bookings");
+    final uri = Uri.parse('${AppConfig.baseUrl}/dev/clear-bookings');
     try {
       final resp = await http.post(uri).timeout(const Duration(seconds: 8));
       if (resp.statusCode == 200) {
@@ -173,8 +100,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
   Future<void> _markNotificationRead(int? notificationId) async {
     if (notificationId == null) return;
-    final base = overrideBaseUrl ?? _candidateBaseUrls.first;
-    final uri = Uri.parse("$base/notifications/$notificationId/read");
+    final uri = Uri.parse('${AppConfig.baseUrl}/notifications/$notificationId/read');
     try {
       final resp = await http.put(uri).timeout(const Duration(seconds: 8));
       if (resp.statusCode == 200) {
@@ -202,8 +128,7 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Future<void> _showBookingDetailsDialog(int bookingId, {int? notificationId}) async {
-    final base = overrideBaseUrl ?? _candidateBaseUrls.first;
-    final uri = Uri.parse("$base/booking/$bookingId");
+    final uri = Uri.parse('${AppConfig.baseUrl}/booking/$bookingId');
     try {
       final resp = await http.get(uri).timeout(const Duration(seconds: 8));
       if (resp.statusCode == 200) {
@@ -372,7 +297,7 @@ class _NotificationPageState extends State<NotificationPage> {
           const SizedBox(height: 12),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: _loadNotificationsWithFallbacks,
+            onPressed: _loadNotifications,
             child: const Text("Retry"),
           ),
         ]),

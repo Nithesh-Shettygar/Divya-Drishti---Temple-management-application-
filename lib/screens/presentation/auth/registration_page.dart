@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // kIsWeb
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:divya_drishti/screens/presentation/auth/login_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -32,9 +32,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String? _dummyOtp; // store dev OTP returned by backend
 
   final List<String> _genders = ['Male', 'Female', 'Other'];
-
-  // Base URL for Flask backend
-  final String _baseUrl = kIsWeb ? 'http://127.0.0.1:5000' : 'http://10.0.2.2:5000';
 
   @override
   void initState() {
@@ -741,8 +738,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
     setState(() => _isSendingOtp = true);
     try {
+      // Use AppConfig.sendOtpUrl instead of hardcoded URL
       final resp = await http.post(
-        Uri.parse('$_baseUrl/send-otp'),
+        Uri.parse(AppConfig.sendOtpUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone}),
       );
@@ -793,8 +791,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
     setState(() => _isLoading = true);
     try {
+      // Use AppConfig.verifyOtpUrl instead of hardcoded URL
       final resp = await http.post(
-        Uri.parse('$_baseUrl/verify-otp'),
+        Uri.parse(AppConfig.verifyOtpUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'otp': otp}),
       );
@@ -823,8 +822,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
     setState(() => _isLoading = true);
     try {
       final dobForDb = _formatDobForDb(_dobController.text.trim());
+      // Use AppConfig.registerUrl instead of hardcoded URL
       final resp = await http.post(
-        Uri.parse('$_baseUrl/register'),
+        Uri.parse(AppConfig.registerUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'phone': _phoneController.text.trim(),

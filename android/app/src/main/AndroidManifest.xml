@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- AndroidManifest.xml -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.SEND_SMS" />
+<uses-permission android:name="android.permission.READ_PHONE_STATE" />
+<!-- For shake detection -->
+<uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+<uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:label="divya_drishti"
         android:name="${applicationName}"

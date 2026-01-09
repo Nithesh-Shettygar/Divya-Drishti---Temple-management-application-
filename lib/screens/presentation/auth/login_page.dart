@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // kIsWeb
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:divya_drishti/screens/presentation/auth/registration_page.dart';
 import 'package:divya_drishti/screens/presentation/screens/main_page.dart';
 import 'package:http/http.dart' as http;
@@ -18,9 +18,6 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-
-  // Base URL for Flask backend (choose by platform)
-  final String _baseUrl = kIsWeb ? 'http://127.0.0.1:5000' : 'http://10.0.2.2:5000';
 
   @override
   void dispose() {
@@ -261,62 +258,73 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _login(BuildContext context) async {
-    String phone = _phoneController.text.trim();
-    String password = _passwordController.text.trim();
+  // In the _login method, update the SharedPreferences section:
 
-    if (phone.isEmpty || password.isEmpty) {
-      _showErrorDialog('Please fill all fields');
-      return;
-    }
+Future<void> _login(BuildContext context) async {
+  String phone = _phoneController.text.trim();
+  String password = _passwordController.text.trim();
 
-    if (phone.length != 10) {
-      _showErrorDialog('Please enter a valid 10-digit phone number');
-      return;
-    }
+  if (phone.isEmpty || password.isEmpty) {
+    _showErrorDialog('Please fill all fields');
+    return;
+  }
+
+  if (phone.length != 10) {
+    _showErrorDialog('Please enter a valid 10-digit phone number');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final response = await http.post(
+      Uri.parse(AppConfig.loginUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'phone': phone,
+        'password': password,
+      }),
+    );
 
     setState(() {
-      _isLoading = true;
+      _isLoading = false;
     });
 
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'phone': phone,
-          'password': password,
-        }),
-      );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
 
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        // Save user data to shared preferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_phone', data['user']['phone']);
-        await prefs.setString('user_name', data['user']['name']);
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()),
-          (route) => false,
-        );
-      } else {
-        final errorData = json.decode(response.body);
-        _showErrorDialog(errorData['message'] ?? 'Login failed');
+      // Save user data to shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      
+      // UPDATED: Save user ID along with phone and name
+      await prefs.setString('user_phone', data['user']['phone']);
+      await prefs.setString('user_name', data['user']['name']);
+      
+      // Save user ID if available (adjust the key based on your backend response)
+      if (data['user']['id'] != null) {
+        await prefs.setInt('user_id', data['user']['id']);
+      } else if (data['user']['user_id'] != null) {
+        await prefs.setInt('user_id', data['user']['user_id']);
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorDialog('Network error: $e');
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+        (route) => false,
+      );
+    } else {
+      final errorData = json.decode(response.body);
+      _showErrorDialog(errorData['message'] ?? 'Login failed');
     }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    _showErrorDialog('Network error: $e');
   }
+}
 
   void _showErrorDialog(String message) {
     showDialog(

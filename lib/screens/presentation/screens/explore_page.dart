@@ -1,5 +1,6 @@
 import 'package:divya_drishti/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ExplorePage extends StatelessWidget {
   @override
@@ -29,7 +30,7 @@ class ExplorePage extends StatelessWidget {
                       // Temple Map Section
                       _buildSectionHeader('Temple Map'),
                       SizedBox(height: 15),
-                      _buildTempleMapBox(),
+                      _buildTempleMapBox(context),
 
                       SizedBox(height: 25),
 
@@ -77,83 +78,153 @@ class ExplorePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTempleMapBox() {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 4,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Map placeholder with some temple layout visualization
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                color: AppColors.primary.withOpacity(0.1),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.map_outlined,
-                      size: 50,
-                      color: AppColors.primary,
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      'Temple Layout Map',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(
-            height: 40,
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Interactive Temple Guide',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-                Icon(
-                  Icons.zoom_in_map,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildTempleMapBox(BuildContext context) {
+    final String mapUrl = 'https://tracexlabs.com/navigation.html';
 
+    Future<void> _launchMapUrl() async {
+      final Uri url = Uri.parse(mapUrl);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(
+          url,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        // Show error message if URL cannot be launched
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open map URL'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    return GestureDetector(
+  onTap: _launchMapUrl,
+  child: Container(
+    width: double.infinity,
+    height: 200,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.25),
+          blurRadius: 4,
+          offset: Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        // Map placeholder replaced with network image
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              color: AppColors.primary.withOpacity(0.1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              child: Image.network(
+                'https://www.gujarattourism.com/content/dam/gujrattourism/images/religious-sites/somnath-temple/Somnath-Temple-Thumbnail.jpg', // Replace with your image URL
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.map_outlined,
+                          size: 50,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(height: 10),
+                        CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 50,
+                          color: Colors.red,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          'Failed to load map',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+        Container(
+          height: 40,
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Interactive Temple Guide',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primary,
+                ),
+              ),
+              Row(
+                children: [
+                  Text(
+                    'Tap to open',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary.withOpacity(0.7),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(
+                    Icons.zoom_in_map,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+);
+  }
+  // ... rest of your existing methods remain the same
   Widget _buildNearestPlacesBox() {
     return Container(
       width: double.infinity,

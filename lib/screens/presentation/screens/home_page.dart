@@ -1,11 +1,12 @@
 import 'package:divya_drishti/core/constants/app_colors.dart';
+import 'package:divya_drishti/screens/services/apiservices.dart'; // Import AppConfig
 import 'package:divya_drishti/screens/presentation/screens/home/darshan_booking.dart';
-import 'package:divya_drishti/screens/presentation/screens/home/darshana_ticket_booking.dart';
-import 'package:divya_drishti/screens/presentation/screens/home/elderly_desabled_ticket_booking.dart';
 import 'package:divya_drishti/screens/presentation/screens/home/live_stream_page.dart';
 import 'package:divya_drishti/screens/presentation/widgets/home_page/piligrim_services.dart';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class HomeContent extends StatefulWidget {
   @override
@@ -15,18 +16,41 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final List<String> imageUrls = [
-    'https://picsum.photos/400/300?random=1',
-    'https://picsum.photos/400/300?random=2',
-    'https://picsum.photos/400/300?random=3',
-    'https://picsum.photos/400/300?random=4',
-  ];
+
+  int crowdCount = 0; // moved here
+
+  Future<void> fetchCrowdCount() async {
+    // moved here
+    try {
+      // Use AppConfig.baseUrl to build the URL
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/stats/bookings-count?date=2025-12-09'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          crowdCount = int.tryParse(data["total_people"].toString()) ?? 0;
+        });
+      }
+    } catch (e) {
+      print("Error fetching count: $e");
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    fetchCrowdCount(); // works now
     _startAutoScroll();
   }
+
+  final List<String> imageUrls = [
+    'https://i.ibb.co/4ZCgR2GJ/hq720-3.jpg',
+    'https://www.gujarattourism.com/content/dam/gujrattourism/images/religious-sites/somnath-temple/Somnath-Temple-Thumbnail.jpg',
+    'https://i.ibb.co/cXpyjmmd/12-1.jpg',
+    'https://i.ibb.co/qLv6cCB3/event-banner-1.png',
+  ];
 
   void _startAutoScroll() {
     Future.delayed(Duration(seconds: 2), () {
@@ -160,7 +184,6 @@ class _HomeContentState extends State<HomeContent> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.primary, width: 1),
-
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.25),
@@ -173,7 +196,6 @@ class _HomeContentState extends State<HomeContent> {
                         padding: EdgeInsets.all(16),
                         child: Row(
                           children: [
-                            // Circular Avatar with Icon
                             SizedBox(width: 16),
 
                             // Text section
@@ -214,203 +236,258 @@ class _HomeContentState extends State<HomeContent> {
                     SizedBox(height: 30),
                     // In your main page where the ticket booking section is
                     Container(
-  width: double.infinity,
-  child: Text(
-    'Ticket Booking',
-    textAlign: TextAlign.center,
-    style: TextStyle(
-      fontSize: 22,
-      fontWeight: FontWeight.bold,
-      color: AppColors.primary,
-    ),
-  ),
-),
-
-SizedBox(height: 15),
-
-// Rectangular Box
-Container(
-  width: double.infinity,
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.25),
-        blurRadius: 4,
-        offset: Offset(0, 4),
-      ),
-    ],
-  ),
-  child: Padding(
-    padding: EdgeInsets.all(16),
-    child: Row(
-      children: [
-        // Option 1 - Darshan Ticket Book
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DarshanBookingPage(
-                        title: 'Darshan Ticket Booking', // Add proper title
-                      ),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        radius: 40,
-                        child: Icon(
-                          Icons.directions,
-                          size: 40,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Darshan \nTicket',
+                      width: double.infinity,
+                      child: Text(
+                        'Ticket Booking',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        SizedBox(width: 16),
-
-        // Option 2 - Elder/Disabled
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DarshanBookingPage(
-                        title: 'Elder/Disabled Ticket Booking', // Add proper title
                       ),
                     ),
-                  );
-                },
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        radius: 40,
-                        child: Icon(
-                          Icons.accessible_forward,
-                          size: 40,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Elder/\nDisabled',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
 
-        SizedBox(width: 16),
+                    SizedBox(height: 15),
 
-        // Option 3 - Special Entry
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DarshanBookingPage(
-                        title: 'Special Entry Booking', // Add proper title
+                    // Rectangular Box
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.25),
+                            blurRadius: 4,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            // Option 1 - Darshan Ticket Book
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              DarshanBookingPage(
+                                            title: 'Darshan Ticket Booking',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor:
+                                                AppColors.primary.withOpacity(0.1),
+                                            radius: 40,
+                                            child: Icon(
+                                              Icons.directions,
+                                              size: 40,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Darshan \nTicket',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(width: 16),
+
+                            // Option 2 - Elder/Disabled
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              DarshanBookingPage(
+                                            title:
+                                                'Elder/Disabled Ticket Booking',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor:
+                                                AppColors.primary.withOpacity(0.1),
+                                            radius: 40,
+                                            child: Icon(
+                                              Icons.accessible_forward,
+                                              size: 40,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Elder/\nDisabled',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(width: 16),
+
+                            // Option 3 - Special Entry
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              DarshanBookingPage(
+                                            title: 'Special Entry Booking',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            backgroundColor:
+                                                AppColors.primary.withOpacity(0.1),
+                                            radius: 40,
+                                            child: Icon(
+                                              Icons.flag,
+                                              size: 40,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Special Entry',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                },
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        radius: 40,
-                        child: Icon(
-                          Icons.flag,
-                          size: 40,
-                          color: AppColors.primary,
-                        ),
+
+                    SizedBox(height: 15),
+
+                    // First Box - Crowd Count
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.25),
+                            blurRadius: 4,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Special Entry',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
+                      padding: EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            "No Bookings Today",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+
+                          // Dynamic count from API
+                          Text(
+                            "$crowdCount",
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  ),
-),
+                    ),
+
+                    SizedBox(height: 20),
+
                     SizedBox(height: 30),
-                    // In your widget build method
                     // In your home screen widget build method
                     Container(
                       width: double.infinity,
@@ -466,8 +543,8 @@ Container(
                                 child: Row(
                                   children: [
                                     CircleAvatar(
-                                      backgroundColor: AppColors.primary
-                                          .withOpacity(0.1),
+                                      backgroundColor:
+                                          AppColors.primary.withOpacity(0.1),
                                       radius: 24,
                                       child: Icon(
                                         Icons.live_tv,
@@ -568,8 +645,8 @@ Container(
                                             MainAxisAlignment.center,
                                         children: [
                                           CircleAvatar(
-                                            backgroundColor: AppColors.primary
-                                                .withOpacity(0.1),
+                                            backgroundColor:
+                                                AppColors.primary.withOpacity(0.1),
                                             radius: 24,
                                             child: Icon(
                                               Icons.breakfast_dining,
@@ -617,8 +694,8 @@ Container(
                                             MainAxisAlignment.center,
                                         children: [
                                           CircleAvatar(
-                                            backgroundColor: AppColors.primary
-                                                .withOpacity(0.1),
+                                            backgroundColor:
+                                                AppColors.primary.withOpacity(0.1),
                                             radius: 24,
                                             child: Icon(
                                               Icons.cake,
@@ -648,6 +725,9 @@ Container(
                       ),
                     ),
 
+                    SizedBox(height: 15),
+
+                    // Rectangular Box -
                     SizedBox(height: 30),
                     Container(
                       width: double.infinity,
@@ -690,8 +770,8 @@ Container(
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  backgroundColor: AppColors.primary
-                                      .withOpacity(0.1),
+                                  backgroundColor:
+                                      AppColors.primary.withOpacity(0.1),
                                   radius: 24,
                                   child: Icon(
                                     Icons.volunteer_activism,

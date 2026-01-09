@@ -987,8 +987,35 @@ def clear_bookings():
         except:
             pass
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+    
+@app.route("/stats/bookings-count", methods=["GET"])
+def get_bookings_count():
+    try:
+        date_param = request.args.get("date")  # yyyy-mm-dd format
+        
+        if not date_param:
+            return jsonify({"error": "date parameter required e.g. ?date=2025-11-28"}), 400
 
-# ---------- RUN APP ----------
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT SUM(persons) FROM bookings WHERE booking_date = %s", (date_param,))
+        result = cursor.fetchone()
+        total_people = result[0] if result[0] is not None else 0
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "status": "success",
+            "date": date_param,
+            "total_people": total_people
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    
 if __name__ == "__main__":
     print("🚀 Starting Divya Drishti Flask server...")
     print("📍 DEVELOPMENT MODE: Dummy OTP Enabled")
@@ -996,3 +1023,4 @@ if __name__ == "__main__":
     print("🔄 Setting up database tables...")
     create_tables()
     app.run(debug=True, host="0.0.0.0", port=5000)
+    
